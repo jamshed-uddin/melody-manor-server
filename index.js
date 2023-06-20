@@ -26,6 +26,25 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+
+    const userCollection = client.db("melodyManorDB").collection("users");
+    const classCollection = client.db("melodyManorDB").collection("classes");
+
+    //users APIs
+
+    app.get("/users", async (req, res) => {
+      const cursor = userCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/instructors", async (req, res) => {
+      const query = { role: "instructor" };
+      const cursor = userCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
