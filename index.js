@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // database
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.phenf1e.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -45,6 +45,86 @@ async function run() {
       res.send(result);
     });
 
+    // add a new user
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await userCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: "user exists" });
+      }
+      console.log(user);
+      const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    // single user
+    app.get("/users/:email", async (req, res) => {
+      const userEmail = req.params.email;
+      const query = { email: userEmail };
+      const singleUser = await userCollection.findOne(query);
+      res.send(singleUser);
+    });
+
+    // change role route
+    app.patch("/changeRole/:id", async (req, res) => {
+      const id = req.params.id;
+      const newRole = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const changedRole = {
+        $set: {
+          role: newRole.role,
+        },
+      };
+
+      const result = await userCollection.updateOne(
+        filter,
+        changedRole,
+        options
+      );
+      res.send(result);
+    });
+
+    //classes APIs
+
+    //aproved classes
+    app.get("/classes", async (req, res) => {
+      const query = { status: "approved" };
+      const cursor = classCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    //all classes
+    app.get("/all-classes", async (req, res) => {
+      const cursor = classCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    //update class status(pending/approved/denied)
+    app.patch("/updateStatus/:classId", async (req, res) => {
+      const id = req.params.classId;
+      const updatedData = req.body;
+
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedStatusAndFeedback = {
+        $set: {
+          status: updatedData.status,
+          feedback: updatedData.feedback,
+        },
+      };
+      const result = await classCollection.updateOne(
+        filter,
+        updatedStatusAndFeedback,
+        options
+      );
+      res.send(result);
+    });
+
+    //-------------------
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
