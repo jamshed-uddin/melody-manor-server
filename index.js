@@ -53,7 +53,7 @@ async function run() {
       if (existingUser) {
         return res.send({ message: "user exists" });
       }
-      console.log(user);
+
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
@@ -122,6 +122,47 @@ async function run() {
         options
       );
       res.send(result);
+    });
+
+    // selected classes API
+    app.patch("/selectedClasses/:userEmail", async (req, res) => {
+      const email = req.params.userEmail;
+      const bookmarkedClassId = req.body;
+      console.log(email, bookmarkedClassId.classId);
+      const selectedClassesByUser = [];
+
+      const filter = { email: email };
+      const options = { upsert: true };
+      //To check if the selected class id already exists
+      const user = await userCollection.findOne(filter);
+      if (user.selectedClasses) {
+        if (user.selectedClasses.includes(bookmarkedClassId.classId)) {
+          return res.send({ message: "This class already selected" });
+        } else {
+          const result = await userCollection.updateOne(
+            filter,
+            {
+              $push: { selectedClasses: bookmarkedClassId.classId },
+            },
+            options
+          );
+          console.log(result);
+          return res.send(result);
+        }
+      } else {
+        selectedClassesByUser.push(bookmarkedClassId.classId);
+        const addSelectedClass = {
+          $set: {
+            selectedClasses: selectedClassesByUser,
+          },
+        };
+        const result = await userCollection.updateOne(
+          filter,
+          addSelectedClass,
+          options
+        );
+        return res.send(result);
+      }
     });
 
     //-------------------
