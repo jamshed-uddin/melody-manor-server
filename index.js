@@ -63,6 +63,7 @@ async function run() {
       const userEmail = req.params.email;
       const query = { email: userEmail };
       const singleUser = await userCollection.findOne(query);
+      console.log(singleUser);
       res.send(singleUser);
     });
 
@@ -124,7 +125,7 @@ async function run() {
       res.send(result);
     });
 
-    // selected classes API
+    // add to selected classes API
     app.patch("/selectedClasses/:userEmail", async (req, res) => {
       const email = req.params.userEmail;
       const bookmarkedClassId = req.body;
@@ -163,6 +164,41 @@ async function run() {
         );
         return res.send(result);
       }
+    });
+
+    // get selected classes API
+    app.get("/getSelectedClasses/:userEmail", async (req, res) => {
+      const userEmail = req.params.userEmail;
+      const allClasses = await classCollection.find().toArray();
+      const user = await userCollection.findOne({ email: userEmail });
+      const selectedClassesIds = user?.selectedClasses;
+      const selectedClasses = allClasses.filter((singleClass) =>
+        selectedClassesIds.includes(singleClass._id.toString())
+      );
+      res.send(selectedClasses);
+    });
+    // remove class from selected class list
+    app.patch("removeClass/:userEmail", async (req, res) => {
+      const userEmail = req.params.userEmail;
+      const classId = req.body.classId;
+      const options = { upsert: true };
+      const user = await userCollection.findOne({ email: userEmail });
+      const allClasses = await classCollection.find().toArray();
+      const selectedClassesIds = user?.selectedClasses;
+      const indexOfRemovingClass = selectedClassesIds.indexOf(classId);
+      const existingClassesIds = selectedClassesIds.splice(
+        indexOfRemovingClass,
+        1
+      );
+      const existingClasses = allClasses.filter((singleClass) =>
+        existingClassesIds.includes(singleClass._id.toString())
+      );
+      const result = await userCollection.updateOne(
+        { email: userEmail },
+        existingClasses,
+        options
+      );
+      res.send(result);
     });
 
     //-------------------
