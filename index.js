@@ -178,24 +178,21 @@ async function run() {
       res.send(selectedClasses);
     });
     // remove class from selected class list
-    app.patch("removeClass/:userEmail", async (req, res) => {
+    app.patch("/removeClass/:userEmail", async (req, res) => {
       const userEmail = req.params.userEmail;
       const classId = req.body.classId;
       const options = { upsert: true };
       const user = await userCollection.findOne({ email: userEmail });
-      const allClasses = await classCollection.find().toArray();
+
       const selectedClassesIds = user?.selectedClasses;
-      const indexOfRemovingClass = selectedClassesIds.indexOf(classId);
-      const existingClassesIds = selectedClassesIds.splice(
-        indexOfRemovingClass,
-        1
+      console.log(selectedClassesIds);
+      const existingClassesIds = selectedClassesIds.filter(
+        (id) => id !== classId
       );
-      const existingClasses = allClasses.filter((singleClass) =>
-        existingClassesIds.includes(singleClass._id.toString())
-      );
+      console.log(existingClassesIds);
       const result = await userCollection.updateOne(
         { email: userEmail },
-        existingClasses,
+        { $set: { selectedClasses: existingClassesIds } },
         options
       );
       res.send(result);
