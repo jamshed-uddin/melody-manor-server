@@ -87,7 +87,7 @@ async function run() {
       res.send(result);
     });
 
-    //classes APIs
+    //classes APIs-----------------------------
 
     //aproved classes
     app.get("/classes", async (req, res) => {
@@ -101,6 +101,17 @@ async function run() {
     app.get("/all-classes", async (req, res) => {
       const cursor = classCollection.find();
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // Instructor specific classes
+    app.get("/instructorsClasses/:instructorEmail", async (req, res) => {
+      const instructorEmail = req.params.instructorEmail;
+      const result = await classCollection
+        .find({
+          instructor_email: instructorEmail,
+        })
+        .toArray();
       res.send(result);
     });
 
@@ -129,9 +140,7 @@ async function run() {
     app.patch("/selectedClasses/:userEmail", async (req, res) => {
       const email = req.params.userEmail;
       const bookmarkedClassId = req.body;
-      console.log(email, bookmarkedClassId.classId);
       const selectedClassesByUser = [];
-
       const filter = { email: email };
       const options = { upsert: true };
       //To check if the selected class id already exists
@@ -147,7 +156,7 @@ async function run() {
             },
             options
           );
-          console.log(result);
+
           return res.send(result);
         }
       } else {
