@@ -115,7 +115,7 @@ async function run() {
       res.send(result);
     });
 
-    //update class status(pending/approved/denied)
+    //update class status(pending/approved/denied) by admin
     app.patch("/updateStatus/:classId", async (req, res) => {
       const id = req.params.classId;
       const updatedData = req.body;
@@ -133,6 +133,27 @@ async function run() {
         updatedStatusAndFeedback,
         options
       );
+      res.send(result);
+    });
+
+    // update class info by instructors
+    app.patch("/updateClassInfo/:classId", async (req, res) => {
+      const classId = req.params.classId;
+      const updates = req.body;
+      const infoToUpdate = {
+        $set: {
+          price: updates.price,
+          available_seat: updates.available_seat,
+          description: updates.description,
+        },
+      };
+
+      const result = await classCollection.updateOne(
+        { _id: new ObjectId(classId) },
+        infoToUpdate,
+        { upsert: true }
+      );
+
       res.send(result);
     });
 
