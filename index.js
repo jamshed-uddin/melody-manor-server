@@ -104,10 +104,18 @@ async function run() {
       res.send(result);
     });
 
-    // add new class
+    // add new class by instructor
     app.post("/addNewClass", async (req, res) => {
       const newClass = req.body;
       const result = await classCollection.insertOne(newClass);
+      res.send(result);
+    });
+    // delete a class by instructor
+    app.delete("/deleteClass/:classId", async (req, res) => {
+      const classId = req.params.classId;
+      const result = await classCollection.deleteOne({
+        _id: new ObjectId(classId),
+      });
       res.send(result);
     });
 
