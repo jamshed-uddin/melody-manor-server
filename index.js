@@ -104,6 +104,13 @@ async function run() {
       res.send(result);
     });
 
+    // add new class
+    app.post("/addNewClass", async (req, res) => {
+      const newClass = req.body;
+      const result = await classCollection.insertOne(newClass);
+      res.send(result);
+    });
+
     // Instructor specific classes
     app.get("/instructorsClasses/:instructorEmail", async (req, res) => {
       const instructorEmail = req.params.instructorEmail;
