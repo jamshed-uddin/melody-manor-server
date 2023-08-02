@@ -2,11 +2,12 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 require("dotenv").config();
+
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 const port = process.env.PORT || 3000;
 
 //middleware
 app.use(cors());
-
 app.use(express.json());
 
 // database
@@ -29,6 +30,12 @@ async function run() {
 
     const userCollection = client.db("melodyManorDB").collection("users");
     const classCollection = client.db("melodyManorDB").collection("classes");
+    const paymentCollection = client
+      .db("melodyManorDB")
+      .collection("paymentHistory");
+    const selectedClassCollection = client
+      .db("melodyManorDB")
+      .collection("selectedClass");
 
     //users APIs
 
@@ -59,15 +66,15 @@ async function run() {
     });
 
     // single user
-    app.get("/users/:email", async (req, res) => {
+    app.get("/singleUser/:email", async (req, res) => {
       const userEmail = req.params.email;
+      console.log(userEmail);
+      if (!userEmail) return;
       const query = { email: userEmail };
       const singleUser = await userCollection.findOne(query);
-      console.log(singleUser);
       res.send(singleUser);
     });
-
-    // change role route
+    // change role by admin
     app.patch("/changeRole/:id", async (req, res) => {
       const id = req.params.id;
       const newRole = req.body;
@@ -101,6 +108,16 @@ async function run() {
     app.get("/all-classes", async (req, res) => {
       const cursor = classCollection.find();
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // single class----------
+    app.get("/singleClass/:classId", async (req, res) => {
+      const classId = req.params.classId;
+      const query = {
+        _id: new ObjectId(classId),
+      };
+      const result = await classCollection.findOne(query);
       res.send(result);
     });
 
@@ -173,73 +190,57 @@ async function run() {
     });
 
     // add to selected classes API
-    app.patch("/selectedClasses/:userEmail", async (req, res) => {
-      const email = req.params.userEmail;
-      const bookmarkedClassId = req.body;
-      const selectedClassesByUser = [];
-      const filter = { email: email };
-      const options = { upsert: true };
-      //To check if the selected class id already exists
-      const user = await userCollection.findOne(filter);
-      if (user.selectedClasses) {
-        if (user.selectedClasses.includes(bookmarkedClassId.classId)) {
-          return res.send({ message: "This class already selected" });
-        } else {
-          const result = await userCollection.updateOne(
-            filter,
-            {
-              $push: { selectedClasses: bookmarkedClassId.classId },
-            },
-            options
-          );
-
-          return res.send(result);
-        }
-      } else {
-        selectedClassesByUser.push(bookmarkedClassId.classId);
-        const addSelectedClass = {
-          $set: {
-            selectedClasses: selectedClassesByUser,
-          },
-        };
-        const result = await userCollection.updateOne(
-          filter,
-          addSelectedClass,
-          options
-        );
-        return res.send(result);
+    app.post("/addToSelected", async (req, res) => {
+      const selectedClassItem = req.body;
+      const query = { classId: selectedClassItem.classId };
+      const existingSelectedClass = await selectedClassCollection.findOne(
+        query
+      );
+      if (existingSelectedClass) {
+        return res.send({ message: "You have already added this class." });
       }
+      const result = await selectedClassCollection.insertOne(selectedClassItem);
+      res.send(result);
     });
 
-    // get selected classes API
+    // get selected classes API (by students)
     app.get("/getSelectedClasses/:userEmail", async (req, res) => {
       const userEmail = req.params.userEmail;
-      const allClasses = await classCollection.find().toArray();
-      const user = await userCollection.findOne({ email: userEmail });
-      const selectedClassesIds = user?.selectedClasses;
-      const selectedClasses = allClasses.filter((singleClass) =>
-        selectedClassesIds.includes(singleClass._id.toString())
-      );
+      const selectedClasses = await selectedClassCollection
+        .find({
+          userEmail: userEmail,
+        })
+        .toArray();
       res.send(selectedClasses);
     });
-    // remove class from selected class list
-    app.patch("/removeClass/:userEmail", async (req, res) => {
-      const userEmail = req.params.userEmail;
-      const classId = req.body.classId;
-      const options = { upsert: true };
-      const user = await userCollection.findOne({ email: userEmail });
+    // remove class from selected class list (by students)
+    app.delete("/removeSelectedClass/:classId", async (req, res) => {
+      const removingClassId = req.params.classId;
+      console.log(removingClassId);
+      const query = { classId: removingClassId };
+      const result = await selectedClassCollection.deleteOne(query);
+      res.send(result);
+    });
 
-      const selectedClassesIds = user?.selectedClasses;
-      console.log(selectedClassesIds);
-      const existingClassesIds = selectedClassesIds.filter(
-        (id) => id !== classId
-      );
-      console.log(existingClassesIds);
-      const result = await userCollection.updateOne(
-        { email: userEmail },
-        { $set: { selectedClasses: existingClassesIds } },
-        options
-      );
+    // create payment intent-------------------
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // save payment history api
+    app.post("/paymentHistory", async (req, res) => {
+      const paymentInfo = req.body;
+      const result = await paymentCollection.insertOne(paymentInfo);
       res.send(result);
     });
 
