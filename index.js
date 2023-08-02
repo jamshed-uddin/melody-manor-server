@@ -222,6 +222,8 @@ async function run() {
       res.send(result);
     });
 
+    // enrolled classes
+
     // create payment intent-------------------
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
@@ -241,6 +243,14 @@ async function run() {
     app.post("/paymentHistory", async (req, res) => {
       const paymentInfo = req.body;
       const result = await paymentCollection.insertOne(paymentInfo);
+      res.send(result);
+    });
+    // get payment history
+    app.get("/getPaymentHistory/:userEmail", async (req, res) => {
+      const email = req.params.userEmail;
+      const result = await paymentCollection
+        .find({ userEmail: email })
+        .toArray();
       res.send(result);
     });
 
