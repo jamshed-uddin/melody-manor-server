@@ -68,7 +68,6 @@ async function run() {
     // single user
     app.get("/singleUser/:email", async (req, res) => {
       const userEmail = req.params.email;
-      console.log(userEmail);
       if (!userEmail) return;
       const query = { email: userEmail };
       const singleUser = await userCollection.findOne(query);
@@ -263,7 +262,7 @@ async function run() {
         .find({ userEmail: email })
         .toArray();
       const paidClassesId = paymentsByUser.map((item) => item.classId);
-      console.log(paidClassesId);
+
       const enrolledClass = allClasses.filter((singleClass) =>
         paidClassesId.includes(singleClass._id.toString())
       );
