@@ -192,11 +192,15 @@ async function run() {
     // add to selected classes API
     app.post("/addToSelected", async (req, res) => {
       const selectedClassItem = req.body;
-      const query = { classId: selectedClassItem.classId };
-      const existingSelectedClass = await selectedClassCollection.findOne(
-        query
+      const query = { userEmail: selectedClassItem.userEmail };
+      const userSpecificClasses = await selectedClassCollection
+        .find(query)
+        .toArray();
+      console.log(userSpecificClasses);
+      const existingClass = userSpecificClasses.filter(
+        (singleClass) => singleClass.classId === selectedClassItem.classId
       );
-      if (existingSelectedClass) {
+      if (existingClass) {
         return res.send({ message: "You have already added this class." });
       }
       const result = await selectedClassCollection.insertOne(selectedClassItem);
@@ -216,13 +220,45 @@ async function run() {
     // remove class from selected class list (by students)
     app.delete("/removeSelectedClass/:classId", async (req, res) => {
       const removingClassId = req.params.classId;
-      console.log(removingClassId);
       const query = { classId: removingClassId };
       const result = await selectedClassCollection.deleteOne(query);
       res.send(result);
     });
 
+    // update available seat and enrolled students
+
+    app.patch("/updateSeatAndAvailableClass/:classId", async (req, res) => {
+      const updatingClassId = req.params.classId;
+      const currentInfo = await classCollection.findOne({
+        _id: new ObjectId(updatingClassId),
+      });
+      if (currentInfo.available_seat === 0) {
+        return res.send({ message: "No seat available for this class" });
+      }
+      const infoToUpdate = {
+        $set: {
+          available_seat: currentInfo.available_seat - 1,
+          enrolled: currentInfo.enrolled + 1,
+        },
+      };
+
+      const result = await classCollection.updateOne(
+        { _id: new ObjectId(updatingClassId) },
+        infoToUpdate,
+        { upsert: true }
+      );
+      res.send(result);
+    });
+
     // enrolled classes
+    app.get("/enrolledClasses/:userEmail", async (req, res) => {
+      const email = req.params.userEmail;
+      const allClasses = await classCollection.find().toArray();
+      const paymentsByUser = await paymentCollection
+        .find({ userEmail: email })
+        .toArray();
+      const paidClassesId = paymentsByUser.filter((item) => item.classId);
+    });
 
     // create payment intent-------------------
     app.post("/create-payment-intent", async (req, res) => {
