@@ -196,12 +196,17 @@ async function run() {
       const userSpecificClasses = await selectedClassCollection
         .find(query)
         .toArray();
-      console.log(userSpecificClasses);
+      const existsInEnrolledClass = await paymentCollection.findOne({
+        classId: selectedClassItem.classId,
+      });
       const existingClass = userSpecificClasses.filter(
         (singleClass) => singleClass.classId === selectedClassItem.classId
       );
+      if (existsInEnrolledClass) {
+        return res.send({ message: "already enrolled" });
+      }
       if (existingClass) {
-        return res.send({ message: "You have already added this class." });
+        return res.send({ message: "already added" });
       }
       const result = await selectedClassCollection.insertOne(selectedClassItem);
       res.send(result);
@@ -217,6 +222,7 @@ async function run() {
         .toArray();
       res.send(selectedClasses);
     });
+
     // remove class from selected class list (by students)
     app.delete("/removeSelectedClass/:classId", async (req, res) => {
       const removingClassId = req.params.classId;
@@ -225,8 +231,7 @@ async function run() {
       res.send(result);
     });
 
-    // update available seat and enrolled students
-
+    // update available seat and enrolled students after a student pays for a class
     app.patch("/updateSeatAndAvailableClass/:classId", async (req, res) => {
       const updatingClassId = req.params.classId;
       const currentInfo = await classCollection.findOne({
@@ -257,7 +262,13 @@ async function run() {
       const paymentsByUser = await paymentCollection
         .find({ userEmail: email })
         .toArray();
-      const paidClassesId = paymentsByUser.filter((item) => item.classId);
+      const paidClassesId = paymentsByUser.map((item) => item.classId);
+      console.log(paidClassesId);
+      const enrolledClass = allClasses.filter((singleClass) =>
+        paidClassesId.includes(singleClass._id.toString())
+      );
+
+      res.send(enrolledClass);
     });
 
     // create payment intent-------------------
