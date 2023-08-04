@@ -188,6 +188,7 @@ async function run() {
       res.send(result);
     });
 
+    // selected classes
     // add to selected classes API
     app.post("/addToSelected", async (req, res) => {
       const selectedClassItem = req.body;
@@ -195,13 +196,17 @@ async function run() {
       const userSpecificClasses = await selectedClassCollection
         .find(query)
         .toArray();
-      const existsInEnrolledClass = await paymentCollection.findOne({
-        classId: selectedClassItem.classId,
-      });
-      const existingClass = userSpecificClasses.filter(
+      const userSpecificEnrolledClasses = await paymentCollection
+        .find(query)
+        .toArray();
+      const existingClass = userSpecificClasses.find(
         (singleClass) => singleClass.classId === selectedClassItem.classId
       );
-      if (existsInEnrolledClass) {
+      const existInEnrolledClass = userSpecificEnrolledClasses.find(
+        (singleClass) => singleClass.classId === selectedClassItem.classId
+      );
+      console.log(existInEnrolledClass);
+      if (existInEnrolledClass) {
         return res.send({ message: "already enrolled" });
       }
       if (existingClass) {
@@ -222,10 +227,19 @@ async function run() {
       res.send(selectedClasses);
     });
 
+    // get single selected claass
+    app.get("/getSingleSelectedClass/:selectedClassId", async (req, res) => {
+      const id = req.params.selectedClassId;
+      const singleSelectedClass = await selectedClassCollection.findOne({
+        _id: new ObjectId(id),
+      });
+      res.send(singleSelectedClass);
+    });
+
     // remove class from selected class list (by students)
     app.delete("/removeSelectedClass/:classId", async (req, res) => {
       const removingClassId = req.params.classId;
-      const query = { classId: removingClassId };
+      const query = { _id: new ObjectId(removingClassId) };
       const result = await selectedClassCollection.deleteOne(query);
       res.send(result);
     });
