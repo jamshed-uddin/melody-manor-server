@@ -23,7 +23,7 @@ const verifyJWT = (req, res, next) => {
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
       return res
-        .status(401)
+        .status(403)
         .send({ error: true, message: "unauthorized access" });
     }
 
@@ -59,6 +59,8 @@ async function run() {
       .db("melodyManorDB")
       .collection("selectedClass");
 
+    // jwt token generator----------
+
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -68,9 +70,9 @@ async function run() {
       res.send({ token });
     });
 
-    //users APIs
+    //users APIs---------------
 
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyJWT, async (req, res) => {
       const cursor = userCollection.find();
       const result = await cursor.toArray();
       res.send(result);
@@ -97,9 +99,17 @@ async function run() {
     });
 
     // single user
-    app.get("/singleUser/:email", async (req, res) => {
+    app.get("/singleUser/:email", verifyJWT, async (req, res) => {
       const userEmail = req.params.email;
-      if (!userEmail) return;
+      if (!userEmail) {
+        return res.status(401).send({ error: true, message: "No data found" });
+      }
+
+      if (req.decoded.email !== userEmail) {
+        return res
+          .status(401)
+          .send({ error: true, message: "unauthorized access" });
+      }
       const query = { email: userEmail };
       const singleUser = await userCollection.findOne(query);
       res.send(singleUser);
@@ -248,7 +258,7 @@ async function run() {
     });
 
     // get selected classes API (by students)
-    app.get("/getSelectedClasses/:userEmail", async (req, res) => {
+    app.get("/getSelectedClasses/:userEmail", verifyJWT, async (req, res) => {
       const userEmail = req.params.userEmail;
       const selectedClasses = await selectedClassCollection
         .find({
