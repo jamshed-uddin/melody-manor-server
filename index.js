@@ -340,14 +340,14 @@ async function run() {
       });
     });
 
-    // save payment history api
+    // save payment history
     app.post("/paymentHistory", async (req, res) => {
       const paymentInfo = req.body;
       const result = await paymentCollection.insertOne(paymentInfo);
       res.send(result);
     });
     // get payment history
-    app.get("/getPaymentHistory/:userEmail", async (req, res) => {
+    app.get("/getPaymentHistory/:userEmail", verifyJWT, async (req, res) => {
       const email = req.params.userEmail;
       const result = await paymentCollection
         .find({ userEmail: email })
