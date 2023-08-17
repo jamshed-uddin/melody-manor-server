@@ -99,17 +99,8 @@ async function run() {
     });
 
     // single user
-    app.get("/singleUser/:email", verifyJWT, async (req, res) => {
+    app.get("/singleUser/:email", async (req, res) => {
       const userEmail = req.params.email;
-      if (!userEmail) {
-        return res.status(401).send({ error: true, message: "No data found" });
-      }
-
-      if (req.decoded.email !== userEmail) {
-        return res
-          .status(401)
-          .send({ error: true, message: "unauthorized access" });
-      }
       const query = { email: userEmail };
       const singleUser = await userCollection.findOne(query);
       res.send(singleUser);
