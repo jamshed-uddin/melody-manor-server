@@ -32,6 +32,18 @@ const verifyJWT = (req, res, next) => {
   });
 };
 
+const verifyAdmin = async (req, res, next) => {
+  const adminEmail = req.decoded.email;
+  const query = { email: adminEmail };
+  const user = await userCollection.findOne(query);
+
+  const isAdmin = user?.role === "admin";
+  if (!isAdmin) {
+    return res.status(401).json({ error: "Unauthorized action" });
+  }
+  next();
+};
+
 // database
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.phenf1e.mongodb.net/?retryWrites=true&w=majority`;
@@ -52,6 +64,9 @@ async function run() {
 
     const userCollection = client.db("melodyManorDB").collection("users");
     const classCollection = client.db("melodyManorDB").collection("classes");
+    const eventParticipentsCollection = client
+      .db("melodyManorDB")
+      .collection("eventParticipents");
     const paymentCollection = client
       .db("melodyManorDB")
       .collection("paymentHistory");
@@ -72,16 +87,16 @@ async function run() {
 
     //users APIs---------------
 
-    app.get("/users", verifyJWT, async (req, res) => {
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
       const cursor = userCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
 
-    app.get("/instructors", async (req, res) => {
+    app.get("/popularInstructors", async (req, res) => {
       const query = { role: "instructor" };
-      const cursor = userCollection.find(query);
-      const result = await cursor.toArray();
+      const result = await userCollection.find(query).toArray();
+
       res.send(result);
     });
 
@@ -99,7 +114,7 @@ async function run() {
     });
 
     // single user
-    app.get("/singleUser/:email", async (req, res) => {
+    app.get("/singleUser/:email", verifyJWT, async (req, res) => {
       const userEmail = req.params.email;
       const query = { email: userEmail };
       const singleUser = await userCollection.findOne(query);
@@ -125,6 +140,19 @@ async function run() {
       res.send(result);
     });
 
+    // event apis---------
+    app.post("/eventSignup", async (req, res) => {
+      const eventParticipentData = req.body;
+      const result = await eventParticipentsCollection.insertOne(
+        eventParticipentData
+      );
+
+      const savedEventParticipent = await eventParticipentsCollection.findOne({
+        _id: new ObjectId(result.insertedId),
+      });
+      res.send(savedEventParticipent);
+    });
+
     //classes APIs-----------------------------
 
     //aproved classes
@@ -145,10 +173,11 @@ async function run() {
     // single class----------
     app.get("/singleClass/:classId", async (req, res) => {
       const classId = req.params.classId;
-      const query = {
+      const objectId = new ObjectId(classId);
+      const result = await classCollection.findOne({
         _id: new ObjectId(classId),
-      };
-      const result = await classCollection.findOne(query);
+      });
+
       res.send(result);
     });
 
@@ -172,7 +201,7 @@ async function run() {
       const instructorEmail = req.params.instructorEmail;
       const result = await classCollection
         .find({
-          instructor_email: instructorEmail,
+          instructorEmail: instructorEmail,
         })
         .toArray();
       res.send(result);
@@ -200,20 +229,14 @@ async function run() {
     });
 
     // update class info by instructors
-    app.patch("/updateClassInfo/:classId", async (req, res) => {
+    app.put("/updateClassInfo/:classId", async (req, res) => {
       const classId = req.params.classId;
-      const updates = req.body;
-      const infoToUpdate = {
-        $set: {
-          price: updates.price,
-          available_seat: updates.available_seat,
-          description: updates.description,
-        },
-      };
+      const { _id, ...updatedClass } = req.body;
+      console.log(updatedClass);
 
-      const result = await classCollection.updateOne(
+      const result = await classCollection.replaceOne(
         { _id: new ObjectId(classId) },
-        infoToUpdate,
+        updatedClass,
         { upsert: true }
       );
 
@@ -333,9 +356,41 @@ async function run() {
 
     // save payment history
     app.post("/paymentHistory", async (req, res) => {
-      const paymentInfo = req.body;
-      const result = await paymentCollection.insertOne(paymentInfo);
-      res.send(result);
+      try {
+        const paymentInfo = req.body;
+        const { classId, userEmail } = paymentInfo;
+        const existsInSelectedClass = await selectedClassCollection.findOne({
+          classId,
+          userEmail,
+        });
+
+        if (existsInSelectedClass) {
+          await selectedClassCollection.deleteOne({ userEmail, classId });
+        }
+
+        const enrolledClass = await classCollection.findOne({
+          _id: new ObjectId(classId),
+        });
+
+        if (enrolledClass) {
+          const infoToUpdate = {
+            $set: {
+              availableSeats: enrolledClass.available_seat - 1,
+              enrolled: enrolledClass.enrolled + 1,
+            },
+          };
+          await classCollection.updateOne(
+            { _id: new ObjectId(classId) },
+            infoToUpdate,
+            { upsert: true }
+          );
+        }
+
+        const result = await paymentCollection.insertOne(paymentInfo);
+        res.send(result);
+      } catch (error) {
+        res.status(400).send({ error: error, message: "Something went wrong" });
+      }
     });
     // get payment history
     app.get("/getPaymentHistory/:userEmail", verifyJWT, async (req, res) => {
@@ -357,7 +412,7 @@ async function run() {
     // await client.close();
   }
 }
-run().catch(console.dir);
+run().catch((err) => console.log(err));
 
 app.get("/", (req, res) => {
   res.send("melody manor server is running.");
