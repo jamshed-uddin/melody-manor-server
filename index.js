@@ -32,18 +32,6 @@ const verifyJWT = (req, res, next) => {
   });
 };
 
-const verifyAdmin = async (req, res, next) => {
-  const adminEmail = req.decoded.email;
-  const query = { email: adminEmail };
-  const user = await userCollection.findOne(query);
-
-  const isAdmin = user?.role === "admin";
-  if (!isAdmin) {
-    return res.status(401).json({ error: "Unauthorized action" });
-  }
-  next();
-};
-
 // database
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.phenf1e.mongodb.net/?retryWrites=true&w=majority`;
@@ -85,11 +73,22 @@ async function run() {
       res.send({ token });
     });
 
+    const verifyAdmin = async (req, res, next) => {
+      const adminEmail = req.decoded.email;
+      const query = { email: adminEmail };
+      const user = await userCollection.findOne(query);
+
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(401).json({ error: "Unauthorized action" });
+      }
+      next();
+    };
+
     //users APIs---------------
 
     app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
-      const cursor = userCollection.find();
-      const result = await cursor.toArray();
+      const result = await userCollection.find().toArray();
       res.send(result);
     });
 
@@ -412,7 +411,7 @@ async function run() {
     // await client.close();
   }
 }
-run().catch((err) => console.log(err));
+run().catch(console.dir);
 
 app.get("/", (req, res) => {
   res.send("melody manor server is running.");
