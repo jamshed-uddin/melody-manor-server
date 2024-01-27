@@ -67,7 +67,7 @@ async function run() {
     app.post("/jwt", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
+        expiresIn: "10d",
       });
 
       res.send({ token });
@@ -80,7 +80,7 @@ async function run() {
 
       const isAdmin = user?.role === "admin";
       if (!isAdmin) {
-        return res.status(401).json({ error: "Unauthorized action" });
+        return res.status(401).json({ error: "Unauthorized action for user" });
       }
       next();
     };
